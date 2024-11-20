@@ -14,7 +14,7 @@ MAX_NUM_SPACES = 5
 BUFFER_SIZE = 1024 * 1024  # 1 MB
 CPU_COUNT = mp.cpu_count()
 CHUNK_SIZE = 10_000
-
+END_SIGNAL="*"
 
 def generate_chain() -> str:
     chain_length = random.randint(MIN_LENGTH_CHAIN, MAX_LENGTH_CHAIN)
@@ -57,7 +57,7 @@ def generate_chains_parallel(num_chains: int, client_socket: socket.socket):
             for chains in pool.map(generate_chains, chunks):
                 f.writelines(chains)
                 client_socket.sendall("".join(chains).encode())
-        client_socket.sendall("end".encode())
+        client_socket.sendall(END_SIGNAL.encode())
 
 
 def receive_from_socket(s: socket.socket):
@@ -67,8 +67,8 @@ def receive_from_socket(s: socket.socket):
             if not data:
                 return
             results = data.decode()
-            if results.endswith("end"):
-                f.write(results.removesuffix("end"))
+            if results.endswith(END_SIGNAL):
+                f.write(results.removesuffix(END_SIGNAL))
                 break
             f.write(results)
 

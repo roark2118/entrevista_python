@@ -6,8 +6,10 @@ import socket
 import time
 import multiprocessing as mp
 
+#constants
 INVALID_CHAIN_WEIGHT = 1000
 BUFFER_SIZE = 1024 * 1024
+END_SIGNAL="*"
 
 class SocketProcess(mp.Process):
     def __init__(self, queue: mp.Queue, conn_socket: socket.socket, remote_address):
@@ -45,14 +47,14 @@ class SocketProcess(mp.Process):
                             break
 
                         chains = data.decode()
-                        if chains.endswith("end"):
+                        if chains.endswith(END_SIGNAL):
                             end = True
-                            chains = chains.removesuffix("end")
+                            chains = chains.removesuffix(END_SIGNAL)
 
                         results = [f"{chain} : {weight:.2f}" for chain in chains.split("\n")[:-1] 
                                    if (weight := self.get_weight(chain)) != INVALID_CHAIN_WEIGHT]
 
-                        message = "\n".join(results) + "end" if end else "\n".join(results)
+                        message = "\n".join(results) + END_SIGNAL if end else "\n".join(results)
                         conn_socket.sendall(message.encode())
 
                     except (BrokenPipeError, ConnectionResetError):
