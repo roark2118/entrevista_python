@@ -14,7 +14,7 @@ class SocketProcess(mp.Process):
         super().__init__()  # Properly initialize the Process class
         self.logging_queue = queue  
         self.socket = conn_socket
-        self.remote_address = remote_address  # Store remote address
+        self.remote_address = remote_address  
         
     def log(self, level: int, message: str) -> None:
         self.logging_queue.put((level, message))
@@ -60,7 +60,6 @@ class SocketProcess(mp.Process):
                         break
 
                 elapsed_time = time.perf_counter() - start_time
-                print(elapsed_time)
                 self.log(logging.INFO, f"Process from {self.remote_address} completed in {elapsed_time:.2f} seconds.")
 
         except Exception as e:
