@@ -2,4 +2,4 @@ Author Eddy Moreno
 Tested with python 3.13
 no need to install any dependency 
 execute python server.py for the server and execute python client.py for the client
-execute python.py x.py -h for help in posible configurations
+execute python x.py -h for help in posible configurations
