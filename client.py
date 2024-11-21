@@ -116,13 +116,13 @@ def main():
 
     args = args_parser.parse_args()
 
-    num_chains: int = args.c
+    num_chains: int = args.chains
     assert num_chains > 0
 
-    buffer_size: int = args.b
+    buffer_size: int = args.buffer
     assert buffer_size > 0
 
-    parallel: int = args.p
+    parallel: int = args.parallel
     assert parallel > 0
 
     cpus = mp.cpu_count()
@@ -130,11 +130,11 @@ def main():
         logging.info(f"Parallelism limited to {cpus}")
         parallel = cpus
 
-    chunk_size: int = args.n
+    chunk_size: int = args.chunck
     assert chunk_size > 0
 
     try:
-        host, port = args.a.split(":")
+        host, port = args.address.split(":")
         port = int(port)
         address = (host, port)
     except ValueError as e:

@@ -1,8 +1,6 @@
 import argparse
-import datetime
 import logging
 import logging.handlers
-import os
 import socket
 import time
 import multiprocessing as mp
@@ -71,8 +69,7 @@ def process_connection(queue: mp.Queue, conn_socket: socket.socket, remote_addre
         conn_socket.sendall((pending + END_SIGNAL).encode())
 
         elapsed_time_ms = (time.perf_counter_ns() - start_time) // 1_000_000
-        logger.info(f"Process from {remote_address} completed in {
-                    elapsed_time_ms} ms")
+        logger.info(f"Process from {remote_address} completed in {elapsed_time_ms} ms")
 
 
 def setup_logger(queue: mp.Queue):
@@ -80,6 +77,7 @@ def setup_logger(queue: mp.Queue):
 
     logger = logging.getLogger()
     handler = logging.handlers.QueueHandler(queue)
+    logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
     return logger
 
@@ -116,13 +114,13 @@ def main():
 
     args = args_parser.parse_args()
 
-    buffer_size: int = args.b
+    buffer_size: int = args.buffer
     assert buffer_size > 0
 
-    log_filename = args.l
+    log_filename = args.logfile
 
     try:
-        host, port = args.a.split(":")
+        host, port = args.address.split(":")
         port = int(port)
         address = (host, port)
     except ValueError as e:
