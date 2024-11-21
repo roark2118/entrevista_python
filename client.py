@@ -1,107 +1,141 @@
+import random
+import string
+import socket
 import argparse
 import multiprocessing as mp
-import random
-import socket
-import string
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor  
+from threading import Thread
+import logging
 
-# Constants
 VALID_CHARS = string.ascii_letters + string.digits
-MIN_LENGTH_CHAIN = 50
-MAX_LENGTH_CHAIN = 100
-MIN_NUM_SPACES = 3
-MAX_NUM_SPACES = 5
-BUFFER_SIZE = 1024 * 1024  # 1 MB
-CPU_COUNT = mp.cpu_count()
-CHUNK_SIZE = 10_000
-END_SIGNAL="*"
+# character to signal end of comunication in socket
+END = "*".encode()
 
-def generate_chain() -> str:
-    chain_length = random.randint(MIN_LENGTH_CHAIN, MAX_LENGTH_CHAIN)
-    num_spaces = random.randint(MIN_NUM_SPACES, MAX_NUM_SPACES)
+
+def receive_results(s: socket.socket,buffer_size: int)->None:
+    with open('results.txt', 'wb',buffering=buffer_size) as f:
+        while data := s.recv(buffer_size):
+            if data.endswith(END):
+                f.write(data[:-len(END)])
+                break
+            f.write(data)
+
+def build_chain() -> str:
+    chain_length = random.randint(50,101)
+    num_spaces = random.randint(3, 5)
+    
     valid_spaces = []
-
-    # Generate valid space indexes that are not consecutive
-    while len(valid_spaces) < num_spaces:
+    while len(valid_spaces)<num_spaces:
         choice = random.randint(1, chain_length - 1)
-        if all(choice + offset not in valid_spaces for offset in (-1, 0, 1)):
+        if (choice not in valid_spaces 
+        and choice-1 not in valid_spaces 
+        and choice+1 not in valid_spaces):
             valid_spaces.append(choice)
 
-    chain_chars = random.choices(VALID_CHARS, k=chain_length)
+    chain_chars = list(random.choices(VALID_CHARS, k=chain_length))
     for pos in valid_spaces:
         chain_chars[pos] = ' '
-    
-    return ''.join(chain_chars) + "\n"
+    return ''.join(chain_chars)+"\n"
 
-def generate_chains(num_chains: int):
-    return [generate_chain() for _ in range(num_chains)]
+def generate_chunck(size: int):
+    return [build_chain() for _ in range(size)]
 
-
-def generate_chains_parallel(num_chains: int, client_socket: socket.socket):
-    with open('chains.txt', 'w', buffering=BUFFER_SIZE) as f, ProcessPoolExecutor(CPU_COUNT) as pool:
-        while num_chains>0:
-            if num_chains <= CHUNK_SIZE:
-                chains = generate_chains(num_chains)
-                f.writelines(chains)
-                client_socket.sendall("".join(chains).encode())
+def generate_chains_no_parallel(num_chains: int,s: socket.socket,buffer_size: int,chunck_size: int) -> None:
+    with open('chains.txt', 'w',buffering=buffer_size) as f:
+        def send_lines(lines : list[str]):
+            f.writelines(lines)
+            s.sendall("".join(lines).encode())
+        while num_chains > 0:
+            if num_chains <= chunck_size:
+                send_lines(generate_chunck(num_chains))
                 break
-            q, r = divmod(num_chains, CHUNK_SIZE)
-            if q >= CPU_COUNT:
-                chunks = [CHUNK_SIZE] * CPU_COUNT
-                num_chains -= CHUNK_SIZE * CPU_COUNT
+            num_chains -= chunck_size
+            send_lines(generate_chunck(chunck_size))     
+        s.sendall(END)
+
+def generate_chains(num_chains: int,s: socket.socket,buffer_size: int,chunck_size: int,parallel: int)-> None:
+    if parallel == 1:
+        return generate_chains_no_parallel(num_chains,s,buffer_size,chunck_size)
+    with open('chains.txt', 'w',buffering=buffer_size) as f,ProcessPoolExecutor(parallel) as pool:
+        def send_lines(lines : list[str]):
+            f.writelines(lines)
+            s.sendall("".join(lines).encode())
+        while num_chains > 0:
+            if num_chains <= chunck_size:
+                send_lines(generate_chunck(num_chains))
+                break
+            q,r = divmod(num_chains,chunck_size)
+            if q >= parallel:
+                chunks = [ chunck_size ] * parallel
+                num_chains -= parallel * chunck_size 
             else:
-                chunks = [CHUNK_SIZE] * q
-                if r:
-                    chunks.append(r)
                 num_chains = 0
-            for chains in pool.map(generate_chains, chunks):
-                f.writelines(chains)
-                client_socket.sendall("".join(chains).encode())
-        client_socket.sendall(END_SIGNAL.encode())
-
-
-def receive_from_socket(s: socket.socket):
-    with open('results.txt', 'w', buffering=BUFFER_SIZE) as f:
-        while True:
-            data = s.recv(BUFFER_SIZE)
-            if not data:
-                return
-            results = data.decode()
-            if results.endswith(END_SIGNAL):
-                f.write(results.removesuffix(END_SIGNAL))
-                break
-            f.write(results)
+                chunks = [ chunck_size ] * q
+                if r != 0:
+                    chunks.append(r)
+            for lines in pool.map(generate_chunck,chunks):
+                send_lines(lines)      
+        s.sendall(END)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    DEFAULT_NUM_CHAINS = 1_000_000
-    parser.add_argument("-chains", default=DEFAULT_NUM_CHAINS, type=int,
-                        help=f"Number of chains to generate (default: {DEFAULT_NUM_CHAINS})")
+    args_parser = argparse.ArgumentParser()
+
+    args_parser.add_argument("-c",
+                            default=1_000_000,
+                            help=f"number of chains to generate , default 1_000_000",
+                            type=int)
+
+    args_parser.add_argument("-a",
+                            default="localhost:3000",
+                            help=f"socket address , default localhost:3000")
+
+    args_parser.add_argument("-p",
+                            default=1,
+                            help=f"parallelism , default no parallelism(1)",
+                            type=int)
+
     
-    DEFAULT_ADDRESS = "localhost:3000"
-    parser.add_argument("-address", default=DEFAULT_ADDRESS,
-                        help=f"Socket address (default: {DEFAULT_ADDRESS})")
+    args_parser.add_argument("-b",
+                            default=1024 * 1024,
+                            help=f"buffer size for socket and files in bytes , default 1 MB",
+                            type=int)
+
     
-    args = parser.parse_args()
-    
-    num_chains: int = args.chains
-    if num_chains <= 0:
-        raise ValueError("Number of chains should be a positive number.")
-    
-    address: str = args.address
+    args_parser.add_argument("-n",
+                            default=10_000,
+                            help=f"number of chains to assign to each parrallel process , default 10_000",
+                            type=int)
+
+    args = args_parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s:%(message)s')
+
+    num_chains: int = args.c
+    assert num_chains > 0
+
+    buffer_size : int = args.b
+    assert buffer_size > 0
+
+    parallel : int = args.p
+    assert parallel > 0 
+    cpus = mp.cpu_count()
+    if parallel > cpus:
+        logging.info(f"paralleism {cpus} because pc only haves {cpus} cores")
+        parallel = mp.cpu_count()
+
+    chunck_size : int = args.n
+    assert chunck_size > 0
+
     try:
-        host, port = address.split(":")
+        host, port = args.a.split(":")
         port = int(port)
         address = (host, port)
-    except ValueError:
-        raise ValueError("Invalid socket address format. Use 'host:port'.")
+    except ValueError as e:
+        raise ValueError("Invalid socket address format. Expected format: host:port") from e
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect(address)
-        
-        reader_process = mp.Process(target=receive_from_socket, args=(client_socket,))
-        reader_process.start()
-        
-        generate_chains_parallel(num_chains, client_socket)
-        
-        reader_process.join()
+        receiver = Thread(target=receive_results,args=[client_socket,buffer_size])
+        receiver.start()
+        generate_chains(num_chains,client_socket,buffer_size,chunck_size,parallel)
+        receiver.join()
