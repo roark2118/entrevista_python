@@ -1,5 +1,34 @@
-Author Eddy Moreno
+## Author 
+    Eddy Moreno
+## Overview
+
+This project implements a multi-process client-server application that generates random character chains, sends them to the server for processing, and receives results back. The server calculates weights for the chains based on specific rules and logs all activities.
+
+## Features
+
+- **Client**:
+  - Generates random character chains whitn only letters,digits and spaces , those chains
+  have lengths bettwen 50 and 100 and beetwen 3 to 5 spaces that cannot be at the ends or be consecutive.
+  - Sends generated chains to the server over a TCP socket.
+  - Receives processed results from the server and writes it to a results.txt file.
+
+- **Server**:
+  - Handles multiple client connections concurrently using multiprocessing.
+  - Processes incoming chains, calculates weights, and logs activities.
+  - Sends results back to the client.
+
+## Technologies Used
+
+- Python 3.13
+- Socket Programming
+- Multiprocessing
+- Threading
+- Logging
+
+## Requirements
 Tested with python 3.13
 no need to install any dependency 
+
+## HELP
 execute python server.py for the server and execute python client.py for the client
 execute python.py server.py -h or python.py server.py -h  for help in posible configurations
