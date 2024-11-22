@@ -18,15 +18,9 @@ This project implements a multi-process client-server application that generates
   - Sends results back to the client.
 
 ## Technologies Used
-
 - Python 3.13
-- Socket Programming
-- Multiprocessing
-- Threading
-- Logging
 
 ## Requirements
-Tested with python 3.13
 no need to install any dependency 
 
 ## HELP
