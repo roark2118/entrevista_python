@@ -7,13 +7,13 @@ This project implements a multi-process client-server application that generates
 ## Features
 
 - **Client**:
-  - Generates random character chains whitn only letters,digits and spaces , those chains
+  - Generates a number of random character chains whitn only letters,digits and spaces , those chains
   have lengths bettwen 50 and 100 and beetwen 3 to 5 spaces that cannot be at the ends or be consecutive.
   - Sends generated chains to the server over a TCP socket.
   - Receives processed results from the server and writes it to a results.txt file.
 
 - **Server**:
-  - Handles multiple client connections concurrently using multiprocessing.
+  - Handles multiple client connections concurrently.
   - Processes incoming chains, calculates weights, and logs activities.
   - Sends results back to the client.
 

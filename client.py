@@ -13,12 +13,15 @@ END_SIGNAL = "*".encode()  # Character to signal end of communication in socket
 
 def receive_results(s: socket.socket, buffer_size: int) -> None:
     """Receive results from the server and write them to a file."""
-    with open('results.txt', 'wb', buffering=buffer_size) as f:
-        while data := s.recv(buffer_size):
-            if data.endswith(END_SIGNAL):
-                f.write(data[:-len(END_SIGNAL)])
-                break
-            f.write(data)
+    try:
+        with open('results.txt', 'wb', buffering=buffer_size) as f:
+            while data := s.recv(buffer_size):
+                if data.endswith(END_SIGNAL):
+                    f.write(data[:-len(END_SIGNAL)])
+                    break
+                f.write(data)
+    except KeyboardInterrupt:
+        pass
 
 
 def build_chain() -> str:
@@ -140,18 +143,20 @@ def main():
     except ValueError as e:
         raise ValueError(
             "Invalid socket address format. Expected format: host:port") from e
-
+    
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         client_socket.connect(address)
         receiver = Thread(target=receive_results, args=[
                           client_socket, buffer_size])
         receiver.start()
-
         generate_chains(num_chains, client_socket,
                         buffer_size, chunk_size, parallel)
-
         receiver.join()
 
 
 if __name__ == "__main__":
-    main()
+    try :
+        main()
+    except KeyboardInterrupt:
+        pass
+    
